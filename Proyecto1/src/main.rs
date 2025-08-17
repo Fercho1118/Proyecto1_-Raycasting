@@ -47,6 +47,104 @@ fn draw_cell(
     }
 }
 
+fn draw_minimap(
+    framebuffer: &mut Framebuffer,
+    maze: &Maze,
+    player: &Player,
+    block_size: usize,
+) {
+    //Configuración del minimapa
+    let minimap_scale = 12; //Cada celda del maze será de 12x12 píxeles en el minimapa
+    let maze_width = if maze.len() > 0 { maze[0].len() } else { 0 };
+    let maze_height = maze.len();
+    let minimap_width = maze_width * minimap_scale;
+    let minimap_height = maze_height * minimap_scale;
+    let minimap_x = framebuffer.width as usize - minimap_width - 10; //10 píxeles del borde derecho
+    let minimap_y = 10; //10 píxeles del borde superior
+    
+    //Fondo del minimapa
+    framebuffer.set_current_color(Color::new(0, 0, 0, 150));
+    for x in minimap_x..minimap_x + minimap_width {
+        for y in minimap_y..minimap_y + minimap_height {
+            if x < framebuffer.width as usize && y < framebuffer.height as usize {
+                framebuffer.set_pixel(x as u32, y as u32);
+            }
+        }
+    }
+    
+    //Dibujar el maze en el minimapa
+    for (row_index, row) in maze.iter().enumerate() {
+        for (col_index, &cell) in row.iter().enumerate() {
+            let cell_x = minimap_x + col_index * minimap_scale;
+            let cell_y = minimap_y + row_index * minimap_scale;
+            
+            let color = match cell {
+                '+' | '-' | '|' => Color::WHITE,
+                'g' => Color::GREEN,
+                ' ' => Color::BLACK,
+                _ => Color::GRAY,
+            };
+            
+            if cell != ' ' {
+                framebuffer.set_current_color(color);
+                for x in 0..minimap_scale {
+                    for y in 0..minimap_scale {
+                        let pixel_x = cell_x + x;
+                        let pixel_y = cell_y + y;
+                        if pixel_x < framebuffer.width as usize && pixel_y < framebuffer.height as usize {
+                            framebuffer.set_pixel(pixel_x as u32, pixel_y as u32);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    //Dibujar la posición del jugador
+    let player_minimap_x = minimap_x + ((player.pos.x as usize) / block_size) * minimap_scale + minimap_scale / 2;
+    let player_minimap_y = minimap_y + ((player.pos.y as usize) / block_size) * minimap_scale + minimap_scale / 2;
+    
+    //Jugador como círculo rojo
+    framebuffer.set_current_color(Color::RED);
+    let radius = 3;
+    for dx in -radius..=radius {
+        for dy in -radius..=radius {
+            if dx * dx + dy * dy <= radius * radius {
+                let x = player_minimap_x as i32 + dx;
+                let y = player_minimap_y as i32 + dy;
+                if x >= 0 && y >= 0 && x < framebuffer.width as i32 && y < framebuffer.height as i32 {
+                    framebuffer.set_pixel(x as u32, y as u32);
+                }
+            }
+        }
+    }
+    
+    //Dibujar la dirección del jugador
+    framebuffer.set_current_color(Color::YELLOW);
+    let direction_length = 15.0;
+    let end_x = player_minimap_x as f32 + direction_length * player.a.cos();
+    let end_y = player_minimap_y as f32 + direction_length * player.a.sin();
+    
+    line(
+        framebuffer,
+        Vector2::new(player_minimap_x as f32, player_minimap_y as f32),
+        Vector2::new(end_x, end_y),
+    );
+    
+    //Borde del minimapa
+    framebuffer.set_current_color(Color::WHITE);
+    //Borde superior e inferior
+    for x in minimap_x..minimap_x + minimap_width {
+        framebuffer.set_pixel(x as u32, minimap_y as u32);
+        framebuffer.set_pixel(x as u32, (minimap_y + minimap_height - 1) as u32);
+    }
+    //Bordes laterales
+    for y in minimap_y..minimap_y + minimap_height {
+        framebuffer.set_pixel(minimap_x as u32, y as u32);
+        framebuffer.set_pixel((minimap_x + minimap_width - 1) as u32, y as u32);
+    }
+}
+
 pub fn render_maze(
     framebuffer: &mut Framebuffer,
     maze: &Maze,
@@ -142,7 +240,7 @@ fn main() {
     
     let (mut window, raylib_thread) = raylib::init()
         .size(window_width, window_height)
-        .title("Raycaster Example - FPS: 0")
+        .title("Raycaster Example")
         .log_level(TraceLogLevel::LOG_WARNING)
         .build();
     
@@ -161,7 +259,6 @@ fn main() {
     //Variables para FPS
     let target_fps = 15.0;
     let frame_time = Duration::from_secs_f32(1.0 / target_fps);
-    let mut last_time = Instant::now();
     let mut fps_counter = 0;
     let mut fps_timer = Instant::now();
     let mut current_fps = 0.0;
@@ -185,6 +282,8 @@ fn main() {
             render_maze(&mut framebuffer, &maze, block_size, &player);
         } else {
             render_world(&mut framebuffer, &maze, block_size, &player);
+            //Solo mostrar minimapa en modo 3D
+            draw_minimap(&mut framebuffer, &maze, &player, block_size);
         }
         
         //4.5. Dibujar FPS en pantalla (arriba izquierda)
