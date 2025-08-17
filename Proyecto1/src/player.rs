@@ -1,4 +1,3 @@
-// player.rs
 use raylib::prelude::*;
 use std::f32::consts::PI;
 use crate::maze::Maze;
@@ -25,8 +24,13 @@ fn is_valid_position(pos: Vector2, maze: &Maze, block_size: usize) -> bool {
 pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block_size: usize) {
     const MOVE_SPEED: f32 = 5.0;
     const ROTATION_SPEED: f32 = PI / 50.0;
+    const MOUSE_SENSITIVITY: f32 = 0.003;
     
-    // Rotación
+    //Rotación con mouse (solo horizontal)
+    let mouse_delta = rl.get_mouse_delta();
+    player.a += mouse_delta.x * MOUSE_SENSITIVITY; 
+    
+    //Rotación con teclado
     if rl.is_key_down(KeyboardKey::KEY_LEFT) {
         player.a += ROTATION_SPEED;
     }
@@ -35,7 +39,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
     }
     
     //Movimiento hacia adelante
-    if rl.is_key_down(KeyboardKey::KEY_UP) {
+    if rl.is_key_down(KeyboardKey::KEY_UP) || rl.is_key_down(KeyboardKey::KEY_W) {
         let new_pos = Vector2::new(
             player.pos.x + MOVE_SPEED * player.a.cos(),
             player.pos.y + MOVE_SPEED * player.a.sin(),
@@ -47,7 +51,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
     }
     
     //Movimiento hacia atrás
-    if rl.is_key_down(KeyboardKey::KEY_DOWN) {
+    if rl.is_key_down(KeyboardKey::KEY_DOWN) || rl.is_key_down(KeyboardKey::KEY_S) {
         let new_pos = Vector2::new(
             player.pos.x - MOVE_SPEED * player.a.cos(),
             player.pos.y - MOVE_SPEED * player.a.sin(),

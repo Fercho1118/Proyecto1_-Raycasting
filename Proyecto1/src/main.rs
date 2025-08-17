@@ -14,7 +14,7 @@ use framebuffer::Framebuffer;
 use player::{Player, process_events};
 use raylib::prelude::*;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::f32::consts::PI;
 
 fn cell_to_color(cell: char) -> Color {
@@ -142,7 +142,7 @@ fn main() {
     
     let (mut window, raylib_thread) = raylib::init()
         .size(window_width, window_height)
-        .title("Raycaster Example")
+        .title("Raycaster Example - FPS: 0")
         .log_level(TraceLogLevel::LOG_WARNING)
         .build();
     
@@ -158,7 +158,17 @@ fn main() {
     
     let mut mode = "2D"; //Empezamos en modo 2D
     
+    //Variables para FPS
+    let target_fps = 15.0;
+    let frame_time = Duration::from_secs_f32(1.0 / target_fps);
+    let mut last_time = Instant::now();
+    let mut fps_counter = 0;
+    let mut fps_timer = Instant::now();
+    let mut current_fps = 0.0;
+    
     while !window.window_should_close() {
+        let frame_start = Instant::now();
+        
         //1. Limpiar framebuffer
         framebuffer.clear();
         
@@ -177,8 +187,25 @@ fn main() {
             render_world(&mut framebuffer, &maze, block_size, &player);
         }
         
-        //5. Intercambiar buffers
+        //4.5. Dibujar FPS en pantalla (arriba izquierda)
+        let fps_text = format!("FPS: {:.1}", current_fps);
+        framebuffer.draw_text(&fps_text, 10, 10, 16, Color::WHITE);
+        
+        //5. Calcular FPS
+        fps_counter += 1;
+        if fps_timer.elapsed() >= Duration::from_secs(1) {
+            current_fps = fps_counter as f32 / fps_timer.elapsed().as_secs_f32();
+            fps_counter = 0;
+            fps_timer = Instant::now();
+        }
+        
+        //6. Intercambiar buffers
         framebuffer.swap_buffers(&mut window, &raylib_thread);
-        thread::sleep(Duration::from_millis(16));
+        
+        //7. Control de FPS - mantener 15 FPS estables
+        let frame_duration = frame_start.elapsed();
+        if frame_duration < frame_time {
+            thread::sleep(frame_time - frame_duration);
+        }
     }
 }

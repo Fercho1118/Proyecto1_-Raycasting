@@ -38,6 +38,201 @@ impl Framebuffer {
         self.current_color = color;
     }
 
+    pub fn draw_text(&mut self, text: &str, x: u32, y: u32, font_size: u32, color: Color) {
+        self.set_current_color(color);
+        
+        //Fuente simple de 8x8 píxeles por carácter
+        let char_width = font_size;
+        let char_height = font_size;
+        
+        for (i, ch) in text.chars().enumerate() {
+            let char_x = x + (i as u32 * char_width);
+            self.draw_char(ch, char_x, y, char_width, char_height);
+        }
+    }
+    
+    fn draw_char(&mut self, ch: char, x: u32, y: u32, width: u32, height: u32) {
+        //Patrón simple de números para el FPS
+        let pattern = match ch {
+            '0' => [
+                0b01110,
+                0b10001,
+                0b10001,
+                0b10001,
+                0b10001,
+                0b10001,
+                0b01110,
+            ],
+            '1' => [
+                0b00100,
+                0b01100,
+                0b00100,
+                0b00100,
+                0b00100,
+                0b00100,
+                0b01110,
+            ],
+            '2' => [
+                0b01110,
+                0b10001,
+                0b00001,
+                0b00110,
+                0b01000,
+                0b10000,
+                0b11111,
+            ],
+            '3' => [
+                0b01110,
+                0b10001,
+                0b00001,
+                0b00110,
+                0b00001,
+                0b10001,
+                0b01110,
+            ],
+            '4' => [
+                0b10001,
+                0b10001,
+                0b10001,
+                0b11111,
+                0b00001,
+                0b00001,
+                0b00001,
+            ],
+            '5' => [
+                0b11111,
+                0b10000,
+                0b10000,
+                0b11110,
+                0b00001,
+                0b10001,
+                0b01110,
+            ],
+            '6' => [
+                0b01110,
+                0b10001,
+                0b10000,
+                0b11110,
+                0b10001,
+                0b10001,
+                0b01110,
+            ],
+            '7' => [
+                0b11111,
+                0b00001,
+                0b00010,
+                0b00100,
+                0b01000,
+                0b01000,
+                0b01000,
+            ],
+            '8' => [
+                0b01110,
+                0b10001,
+                0b10001,
+                0b01110,
+                0b10001,
+                0b10001,
+                0b01110,
+            ],
+            '9' => [
+                0b01110,
+                0b10001,
+                0b10001,
+                0b01111,
+                0b00001,
+                0b10001,
+                0b01110,
+            ],
+            '.' => [
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b01100,
+            ],
+            'F' => [
+                0b11111,
+                0b10000,
+                0b10000,
+                0b11110,
+                0b10000,
+                0b10000,
+                0b10000,
+            ],
+            'P' => [
+                0b11110,
+                0b10001,
+                0b10001,
+                0b11110,
+                0b10000,
+                0b10000,
+                0b10000,
+            ],
+            'S' => [
+                0b01111,
+                0b10000,
+                0b10000,
+                0b01110,
+                0b00001,
+                0b00001,
+                0b11110,
+            ],
+            ':' => [
+                0b00000,
+                0b01100,
+                0b01100,
+                0b00000,
+                0b01100,
+                0b01100,
+                0b00000,
+            ],
+            ' ' => [
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+                0b00000,
+            ],
+            _ => [
+                0b11111,
+                0b11111,
+                0b11111,
+                0b11111,
+                0b11111,
+                0b11111,
+                0b11111,
+            ],
+        };
+        
+        let scale_x = width / 5;
+        let scale_y = height / 7;
+        
+        for (row, &pattern_row) in pattern.iter().enumerate() {
+            for col in 0..5 {
+                if (pattern_row >> (4 - col)) & 1 == 1 {
+                    let pixel_x = x + (col as u32) * scale_x;
+                    let pixel_y = y + (row as u32) * scale_y;
+                    
+                    //Dibujar píxel escalado
+                    for sx in 0..scale_x {
+                        for sy in 0..scale_y {
+                            let final_x = pixel_x + sx;
+                            let final_y = pixel_y + sy;
+                            if final_x < self.width && final_y < self.height {
+                                self.set_pixel(final_x, final_y);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn _render_to_file(&self, file_path: &str) {
         self.color_buffer.export_image(file_path);
     }
