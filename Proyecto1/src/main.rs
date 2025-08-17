@@ -11,7 +11,7 @@ use line::line;
 use maze::{Maze, load_maze};
 use caster::{cast_ray, Intersect};
 use framebuffer::Framebuffer;
-use player::{Player, process_events};
+use player::{Player, process_events, get_gamepad_info, check_gamepad_mode_change};
 use raylib::prelude::*;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -272,8 +272,8 @@ fn main() {
         //2. Procesar input del jugador
         process_events(&mut player, &window, &maze, block_size);
         
-        //3. Cambiar modo con la tecla M
-        if window.is_key_pressed(KeyboardKey::KEY_M) {
+        //3. Cambiar modo con la tecla M o gamepad
+        if window.is_key_pressed(KeyboardKey::KEY_M) || check_gamepad_mode_change(&window) {
             mode = if mode == "2D" { "3D" } else { "2D" };
         }
         
@@ -286,9 +286,15 @@ fn main() {
             draw_minimap(&mut framebuffer, &maze, &player, block_size);
         }
         
-        //4.5. Dibujar FPS en pantalla (arriba izquierda)
+        //4.5. Dibujar información en pantalla
         let fps_text = format!("FPS: {:.1}", current_fps);
         framebuffer.draw_text(&fps_text, 10, 10, 16, Color::WHITE);
+        
+        let mode_text = format!("Mode: {} (Press M or Triangle to change)", mode);
+        framebuffer.draw_text(&mode_text, 10, 30, 16, Color::WHITE);
+        
+        let gamepad_text = get_gamepad_info(&window);
+        framebuffer.draw_text(&gamepad_text, 10, 50, 16, Color::WHITE);
         
         //5. Calcular FPS
         fps_counter += 1;
