@@ -37,8 +37,21 @@ fn is_valid_position(pos: Vector2, maze: &Maze, block_size: usize) -> bool {
         return false;
     }
     
-    //Verificar si la posición es un espacio vacío
-    maze[y][x] == ' '
+    //Verificar si la posición es un espacio vacío o la meta
+    maze[y][x] == ' ' || maze[y][x] == 'g'
+}
+
+pub fn check_victory(player: &Player, maze: &Maze, block_size: usize) -> bool {
+    let x = player.pos.x as usize / block_size;
+    let y = player.pos.y as usize / block_size;
+    
+    //Verificar límites del laberinto
+    if y >= maze.len() || x >= maze[0].len() {
+        return false;
+    }
+    
+    //Verificar si el jugador está en la meta (celda 'g')
+    maze[y][x] == 'g'
 }
 
 pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block_size: usize) {
@@ -48,7 +61,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
     const GAMEPAD_SENSITIVITY: f32 = 0.05;
     const GAMEPAD_DEADZONE: f32 = 0.1;
     
-    // Verificar si hay un gamepad conectado
+    //Verificar si hay un gamepad conectado
     let gamepad_available = rl.is_gamepad_available(0);
     
     //Rotación con mouse (solo horizontal)

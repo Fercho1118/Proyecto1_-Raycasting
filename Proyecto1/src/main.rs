@@ -11,7 +11,7 @@ use line::line;
 use maze::{Maze, load_maze};
 use caster::{cast_ray, Intersect};
 use framebuffer::Framebuffer;
-use player::{Player, process_events, get_gamepad_info, check_gamepad_mode_change};
+use player::{Player, process_events, get_gamepad_info, check_gamepad_mode_change, check_victory};
 use raylib::prelude::*;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -264,6 +264,72 @@ fn render_world(
     }
 }
 
+fn draw_victory_screen(framebuffer: &mut Framebuffer) {
+    //Dibujar mensaje de éxito centrado
+    let center_x = framebuffer.width / 2;
+    let center_y = framebuffer.height / 2;
+    
+    framebuffer.set_current_color(Color::new(0, 0, 0, 180)); 
+    
+    //Dibujar rectángulo de fondo para el texto
+    let rect_width = 600;
+    let rect_height = 200;
+    let rect_x = center_x.saturating_sub(rect_width / 2);
+    let rect_y = center_y.saturating_sub(rect_height / 2);
+    
+    for x in rect_x..rect_x + rect_width {
+        for y in rect_y..rect_y + rect_height {
+            if x < framebuffer.width && y < framebuffer.height {
+                framebuffer.set_pixel(x, y);
+            }
+        }
+    }
+    
+    //"SUCCESS!" 
+    let success_text = "SUCCESS!";
+    let char_width = 32;
+    let text_width = success_text.len() as u32 * char_width;
+    let start_x = center_x.saturating_sub(text_width / 2);
+    
+    //Dibujar borde negro del texto
+    framebuffer.draw_text(success_text, start_x + 2, center_y - 58, char_width, Color::BLACK);
+    framebuffer.draw_text(success_text, start_x - 2, center_y - 58, char_width, Color::BLACK);
+    framebuffer.draw_text(success_text, start_x, center_y - 58, char_width, Color::BLACK);
+    framebuffer.draw_text(success_text, start_x, center_y - 62, char_width, Color::BLACK);
+    
+    //Texto principal en blanco
+    framebuffer.draw_text(success_text, start_x, center_y - 60, char_width, Color::WHITE);
+    
+    //"You reached the goal!" - texto secundario con borde
+    let goal_text = "You reached the goal!";
+    let char_width_small = 20;
+    let text_width_small = goal_text.len() as u32 * char_width_small;
+    let start_x_small = center_x.saturating_sub(text_width_small / 2);
+    
+    //Borde negro
+    framebuffer.draw_text(goal_text, start_x_small + 1, center_y + 9, char_width_small, Color::BLACK);
+    framebuffer.draw_text(goal_text, start_x_small - 1, center_y + 9, char_width_small, Color::BLACK);
+    framebuffer.draw_text(goal_text, start_x_small, center_y + 9, char_width_small, Color::BLACK);
+    framebuffer.draw_text(goal_text, start_x_small, center_y + 11, char_width_small, Color::BLACK);
+    
+    //Texto en blanco
+    framebuffer.draw_text(goal_text, start_x_small, center_y + 10, char_width_small, Color::WHITE);
+    
+    //"Press R to restart" - instrucciones con borde
+    let restart_text = "Press R to restart";
+    let restart_width = restart_text.len() as u32 * 16;
+    let start_x_restart = center_x.saturating_sub(restart_width / 2);
+    
+    //Borde negro
+    framebuffer.draw_text(restart_text, start_x_restart + 1, center_y + 49, 16, Color::BLACK);
+    framebuffer.draw_text(restart_text, start_x_restart - 1, center_y + 49, 16, Color::BLACK);
+    framebuffer.draw_text(restart_text, start_x_restart, center_y + 49, 16, Color::BLACK);
+    framebuffer.draw_text(restart_text, start_x_restart, center_y + 51, 16, Color::BLACK);
+    
+    //Texto en amarillo
+    framebuffer.draw_text(restart_text, start_x_restart, center_y + 50, 16, Color::YELLOW);
+}
+
 fn main() {
     let window_width = 1300;
     let window_height = 900;
@@ -293,6 +359,7 @@ fn main() {
     };
     
     let mut mode = "2D"; //Empezamos en modo 2D
+    let mut game_won = false; //Estado del juego
     
     //Variables para FPS
     let target_fps = 15.0;
@@ -307,32 +374,67 @@ fn main() {
         //1. Limpiar framebuffer
         framebuffer.clear();
         
-        //2. Procesar input del jugador
-        process_events(&mut player, &window, &maze, block_size);
-        
-        //3. Cambiar modo con la tecla M o gamepad
-        if window.is_key_pressed(KeyboardKey::KEY_M) || check_gamepad_mode_change(&window) {
-            mode = if mode == "2D" { "3D" } else { "2D" };
-        }
-        
-        //4. Renderizar según el modo
-        if mode == "2D" {
-            render_maze(&mut framebuffer, &maze, block_size, &player);
+        if game_won {
+            //Cargar y dibujar imagen de fondo de éxito
+            let success_image = Image::load_image("assets/img/success_screen.jpg");
+            if let Ok(mut img) = success_image {
+                //Redimensionar la imagen para que cubra exactamente toda la ventana
+                img.resize(framebuffer.width as i32, framebuffer.height as i32);
+                
+                //Transferir imagen redimensionada al framebuffer pixel por pixel
+                for y in 0..framebuffer.height {
+                    for x in 0..framebuffer.width {
+                        let color = img.get_color(x as i32, y as i32);
+                        framebuffer.color_buffer.draw_pixel(x as i32, y as i32, color);
+                    }
+                }
+            }
+            
+            //Pantalla de éxito
+            draw_victory_screen(&mut framebuffer);
+            
+            //Verificar si quiere reiniciar
+            if window.is_key_pressed(KeyboardKey::KEY_R) {
+                game_won = false;
+                //Reiniciar posición del jugador
+                player.pos = Vector2::new(150.0, 150.0);
+                player.a = PI / 3.0;
+                // Restaurar el color del cielo original
+                framebuffer.set_background_color(Color::new(50, 50, 100, 255)); // Azul oscuro original
+            }
         } else {
-            render_world(&mut framebuffer, &maze, block_size, &player);
-            //Solo mostrar minimapa en modo 3D
-            draw_minimap(&mut framebuffer, &maze, &player, block_size);
+            //2. Procesar input del jugador
+            process_events(&mut player, &window, &maze, block_size);
+            
+            //3. Verificar victoria
+            if check_victory(&player, &maze, block_size) {
+                game_won = true;
+            }
+            
+            //4. Cambiar modo con la tecla M o gamepad
+            if window.is_key_pressed(KeyboardKey::KEY_M) || check_gamepad_mode_change(&window) {
+                mode = if mode == "2D" { "3D" } else { "2D" };
+            }
+            
+            //5. Renderizar según el modo
+            if mode == "2D" {
+                render_maze(&mut framebuffer, &maze, block_size, &player);
+            } else {
+                render_world(&mut framebuffer, &maze, block_size, &player);
+                //Solo mostrar minimapa en modo 3D
+                draw_minimap(&mut framebuffer, &maze, &player, block_size);
+            }
+            
+            //6. Dibujar información en pantalla
+            let fps_text = format!("FPS: {:.1}", current_fps);
+            framebuffer.draw_text(&fps_text, 10, 10, 16, Color::WHITE);
+            
+            let mode_text = format!("Mode: {} (Press M or Triangle to change)", mode);
+            framebuffer.draw_text(&mode_text, 10, 30, 16, Color::WHITE);
+            
+            let gamepad_text = get_gamepad_info(&window);
+            framebuffer.draw_text(&gamepad_text, 10, 50, 16, Color::WHITE);
         }
-        
-        //4.5. Dibujar información en pantalla
-        let fps_text = format!("FPS: {:.1}", current_fps);
-        framebuffer.draw_text(&fps_text, 10, 10, 16, Color::WHITE);
-        
-        let mode_text = format!("Mode: {} (Press M or Triangle to change)", mode);
-        framebuffer.draw_text(&mode_text, 10, 30, 16, Color::WHITE);
-        
-        let gamepad_text = get_gamepad_info(&window);
-        framebuffer.draw_text(&gamepad_text, 10, 50, 16, Color::WHITE);
         
         //5. Calcular FPS
         fps_counter += 1;
