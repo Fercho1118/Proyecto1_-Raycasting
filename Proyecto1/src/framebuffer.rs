@@ -6,6 +6,9 @@ pub struct Framebuffer {
     pub color_buffer: Image,
     background_color: Color,
     current_color: Color,
+    //Cache de texturas para acceso rápido
+    pub wall_texture_cache: Option<Vec<Vec<Color>>>,
+    pub floor_texture_cache: Option<Vec<Vec<Color>>>,
 }
 
 impl Framebuffer {
@@ -17,6 +20,8 @@ impl Framebuffer {
             color_buffer,
             background_color: Color::BLACK,
             current_color: Color::WHITE,
+            wall_texture_cache: None,
+            floor_texture_cache: None,
         }
     }
 
@@ -36,6 +41,63 @@ impl Framebuffer {
 
     pub fn set_current_color(&mut self, color: Color) {
         self.current_color = color;
+    }
+    
+    pub fn load_texture_cache(&mut self, texture: &Image) {
+        //Crear cache de la textura de pared para acceso rápido
+        let mut cache = Vec::new();
+        let mut temp_texture = texture.clone();
+        
+        for y in 0..texture.height {
+            let mut row = Vec::new();
+            for x in 0..texture.width {
+                let color = temp_texture.get_color(x, y);
+                row.push(color);
+            }
+            cache.push(row);
+        }
+        self.wall_texture_cache = Some(cache);
+    }
+    
+    pub fn load_floor_texture_cache(&mut self, texture: &Image) {
+        //Crear cache de la textura de piso para acceso rápido
+        let mut cache = Vec::new();
+        let mut temp_texture = texture.clone();
+        
+        for y in 0..texture.height {
+            let mut row = Vec::new();
+            for x in 0..texture.width {
+                let color = temp_texture.get_color(x, y);
+                row.push(color);
+            }
+            cache.push(row);
+        }
+        self.floor_texture_cache = Some(cache);
+    }
+    
+    pub fn get_texture_pixel(&self, tx: f32, ty: f32) -> Color {
+        if let Some(ref cache) = self.wall_texture_cache {
+            let tex_x = ((tx * cache[0].len() as f32) as usize).min(cache[0].len() - 1);
+            let tex_y = ((ty * cache.len() as f32) as usize).min(cache.len() - 1);
+            cache[tex_y][tex_x]
+        } else {
+            //Fallback a textura procedural si no hay cache
+            let r = (tx * 255.0) as u8;
+            let g = (ty * 255.0) as u8;
+            let b = ((tx + ty) * 127.5) as u8;
+            Color::new(r.max(100), g.max(80), b.max(60), 255)
+        }
+    }
+    
+    pub fn get_floor_texture_pixel(&self, tx: f32, ty: f32) -> Color {
+        if let Some(ref cache) = self.floor_texture_cache {
+            let tex_x = ((tx * cache[0].len() as f32) as usize).min(cache[0].len() - 1);
+            let tex_y = ((ty * cache.len() as f32) as usize).min(cache.len() - 1);
+            cache[tex_y][tex_x]
+        } else {
+            //Fallback a color sólido si no hay cache
+            Color::new(80, 60, 40, 255)
+        }
     }
 
     pub fn draw_text(&mut self, text: &str, x: u32, y: u32, font_size: u32, color: Color) {

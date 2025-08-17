@@ -214,20 +214,51 @@ fn render_world(
         let a = player.a - (player.fov / 2.0) + (player.fov * current_ray);
         let intersect = cast_ray(framebuffer, &maze, &player, a, block_size, false);
         
-        let distance_to_wall = intersect.distance;
+        let distance_to_wall = intersect.distance.max(1.0); 
         let distance_to_projection_plane = 70.0;
         let stake_height = (hh / distance_to_wall) * distance_to_projection_plane;
         
         let stake_top = ((hh - (stake_height / 2.0)) as usize).max(0);
         let stake_bottom = ((hh + (stake_height / 2.0)) as usize).min(framebuffer.height as usize);
         
-        //Color basado en el tipo de pared
-        let color = cell_to_color(intersect.impact);
-        framebuffer.set_current_color(color);
-        
-        for y in stake_top..stake_bottom {
+        //Renderizar piso con color sólido
+        for y in stake_bottom..framebuffer.height as usize {
             if i < framebuffer.width && y < framebuffer.height as usize {
+                //Color sólido para el piso
+                let floor_color = Color::new(192, 201, 135, 255);
+                framebuffer.set_current_color(floor_color);
                 framebuffer.set_pixel(i, y as u32);
+            }
+        }
+        
+        //Renderizar la columna vertical con validaciones
+        if stake_top < stake_bottom && stake_bottom > 0 {
+            for y in stake_top..stake_bottom {
+                if i < framebuffer.width && y < framebuffer.height as usize {
+                    //Calcular la coordenada Y de la textura de forma segura
+                    let wall_height = stake_bottom - stake_top;
+                    let ty = if wall_height > 0 {
+                        ((y - stake_top) as f32 / wall_height as f32).clamp(0.0, 1.0)
+                    } else {
+                        0.0
+                    };
+                    
+                    //Obtener el color con validaciones
+                    let color = match intersect.impact {
+                        '+' | '-' | '|' => {
+                            //Usar textura para paredes azules con coordenadas válidas
+                            let safe_tx = intersect.tx.clamp(0.0, 1.0);
+                            framebuffer.get_texture_pixel(safe_tx, ty)
+                        },
+                        _ => {
+                            //Usar color sólido para otros tipos de celdas
+                            cell_to_color(intersect.impact)
+                        }
+                    };
+                    
+                    framebuffer.set_current_color(color);
+                    framebuffer.set_pixel(i, y as u32);
+                }
             }
         }
     }
@@ -246,6 +277,13 @@ fn main() {
     
     let mut framebuffer = Framebuffer::new(window_width as u32, window_height as u32);
     framebuffer.set_background_color(Color::new(50, 50, 100, 255));
+    
+    //Cargar solo la textura de paredes
+    let wall_texture = Image::load_image("assets/img/bosque.jpg")
+        .expect("No se pudo cargar la textura bosque.jpg");
+    
+    //Cargar la textura de paredes en el cache del framebuffer para acceso rápido
+    framebuffer.load_texture_cache(&wall_texture);
     
     let maze = load_maze("maze.txt");
     let mut player = Player {

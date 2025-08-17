@@ -6,6 +6,7 @@ use crate::player::Player;
 pub struct Intersect {
     pub distance: f32,
     pub impact: char,
+    pub tx: f32, 
 }
 
 pub fn cast_ray(
@@ -36,14 +37,23 @@ pub fn cast_ray(
             return Intersect {
                 distance: d,
                 impact: '+', //Pared por defecto
+                tx: 0.0,
             };
         }
         
         //Verificar si golpeamos una pared
         if maze[j][i] != ' ' {
+            //Cálculo simplificado de coordenada de textura
+            let hit_x = player.pos.x + cos;
+            let hit_y = player.pos.y + sin;
+            
+            //Usar una coordenada de textura simple y estable
+            let tx = ((hit_x + hit_y) / block_size as f32).fract();
+            
             return Intersect {
                 distance: d,
                 impact: maze[j][i],
+                tx: tx.abs(), // Asegurar que sea positivo
             };
         }
         
