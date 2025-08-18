@@ -3,6 +3,7 @@ use crate::framebuffer::Framebuffer;
 use crate::game_state::{GameManager, Difficulty, GameState};
 use crate::maze::load_maze;
 use crate::player::Player;
+use crate::audio::AudioManager;
 use std::f32::consts::PI;
 
 pub fn draw_welcome_screen(framebuffer: &mut Framebuffer, game_manager: &GameManager) {
@@ -237,14 +238,17 @@ pub enum VictoryAction {
 pub fn handle_victory_input(
     game_manager: &mut GameManager,
     window: &RaylibHandle,
+    audio_manager: &AudioManager,
 ) -> VictoryAction {
     //Manejar input de victoria
     if window.is_key_pressed(KeyboardKey::KEY_M) || 
        (window.is_gamepad_available(0) && window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_MIDDLE_RIGHT)) {
+        audio_manager.play_menu_sound();
         game_manager.reset_to_welcome();
         VictoryAction::BackToMenu
     } else if window.is_key_pressed(KeyboardKey::KEY_R) ||
              (window.is_gamepad_available(0) && window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_MIDDLE_LEFT)) {
+        audio_manager.play_start_sound();
         //Señalar que se debe reiniciar el nivel
         game_manager.state = GameState::Playing;
         VictoryAction::RestartLevel
@@ -270,9 +274,10 @@ pub fn render_victory_screen(framebuffer: &mut Framebuffer) {
     draw_victory_screen(framebuffer);
 }
 
-pub fn handle_welcome_input(game_manager: &mut GameManager, window: &RaylibHandle) {
+pub fn handle_welcome_input(game_manager: &mut GameManager, window: &RaylibHandle, audio_manager: &AudioManager) {
     //Navegación con teclado
     if window.is_key_pressed(KeyboardKey::KEY_UP) {
+        audio_manager.play_up_down_sound();
         game_manager.selected_option = if game_manager.selected_option > 0 {
             game_manager.selected_option - 1
         } else {
@@ -281,6 +286,7 @@ pub fn handle_welcome_input(game_manager: &mut GameManager, window: &RaylibHandl
     }
     
     if window.is_key_pressed(KeyboardKey::KEY_DOWN) {
+        audio_manager.play_up_down_sound();
         game_manager.selected_option = (game_manager.selected_option + 1) % 3;
     }
     
@@ -291,12 +297,14 @@ pub fn handle_welcome_input(game_manager: &mut GameManager, window: &RaylibHandl
         
         unsafe {
             if left_stick_y < -0.5 && LAST_STICK_INPUT >= -0.5 {
+                audio_manager.play_up_down_sound();
                 game_manager.selected_option = if game_manager.selected_option > 0 {
                     game_manager.selected_option - 1
                 } else {
                     2
                 };
             } else if left_stick_y > 0.5 && LAST_STICK_INPUT <= 0.5 {
+                audio_manager.play_up_down_sound();
                 game_manager.selected_option = (game_manager.selected_option + 1) % 3;
             }
             LAST_STICK_INPUT = left_stick_y;
@@ -306,6 +314,7 @@ pub fn handle_welcome_input(game_manager: &mut GameManager, window: &RaylibHandl
     //Selección con Enter o botón A del gamepad
     if window.is_key_pressed(KeyboardKey::KEY_ENTER) || 
        (window.is_gamepad_available(0) && window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+        audio_manager.play_start_sound();
         let difficulty = match game_manager.selected_option {
             0 => Difficulty::Easy,
             1 => Difficulty::Medium,

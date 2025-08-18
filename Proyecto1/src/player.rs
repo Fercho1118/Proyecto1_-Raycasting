@@ -1,6 +1,7 @@
 use raylib::prelude::*;
 use std::f32::consts::PI;
 use crate::maze::Maze;
+use crate::audio::AudioManager;
 
 pub struct Player {
     pub pos: Vector2,
@@ -54,7 +55,7 @@ pub fn check_victory(player: &Player, maze: &Maze, block_size: usize) -> bool {
     maze[y][x] == 'g'
 }
 
-pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block_size: usize) {
+pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block_size: usize, audio_manager: &mut AudioManager) {
     const MOVE_SPEED: f32 = 5.0;
     const ROTATION_SPEED: f32 = PI / 50.0;
     const MOUSE_SENSITIVITY: f32 = 0.003;
@@ -63,6 +64,9 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
     
     //Verificar si hay un gamepad conectado
     let gamepad_available = rl.is_gamepad_available(0);
+    
+    //Variable para detectar si hubo movimiento en este frame
+    let mut movement_occurred = false;
     
     //Rotación con mouse (solo horizontal)
     let mouse_delta = rl.get_mouse_delta();
@@ -93,6 +97,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
         
         if is_valid_position(new_pos, maze, block_size) {
             player.pos = new_pos;
+            movement_occurred = true;
         }
     }
     
@@ -105,6 +110,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
         
         if is_valid_position(new_pos, maze, block_size) {
             player.pos = new_pos;
+            movement_occurred = true;
         }
     }
     
@@ -119,6 +125,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
             
             if is_valid_position(new_pos, maze, block_size) {
                 player.pos = new_pos;
+                movement_occurred = true;
             }
         }
     }
@@ -132,6 +139,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
         
         if is_valid_position(new_pos, maze, block_size) {
             player.pos = new_pos;
+            movement_occurred = true;
         }
     }
     
@@ -143,6 +151,7 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
         
         if is_valid_position(new_pos, maze, block_size) {
             player.pos = new_pos;
+            movement_occurred = true;
         }
     }
     
@@ -163,7 +172,15 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
             
             if is_valid_position(new_pos, maze, block_size) {
                 player.pos = new_pos;
+                movement_occurred = true;
             }
         }
+    }
+    
+    //Manejar audio de movimiento
+    if movement_occurred {
+        audio_manager.play_running_sound();
+    } else {
+        audio_manager.stop_running_sound();
     }
 }

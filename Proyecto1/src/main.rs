@@ -8,6 +8,7 @@ mod caster;
 mod player;
 mod game_state;
 mod screens;
+mod audio;
 
 use line::line;
 use maze::{Maze, load_maze};
@@ -16,13 +17,11 @@ use framebuffer::Framebuffer;
 use player::{Player, process_events, get_gamepad_info, check_gamepad_mode_change, check_victory};
 use game_state::{GameManager, GameState, Difficulty};
 use screens::{draw_welcome_screen, draw_victory_screen, handle_victory_input, render_victory_screen, handle_welcome_input, VictoryAction};
+use audio::AudioManager;
 use raylib::prelude::*;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::f32::consts::PI;
-use rodio::{Decoder, OutputStream, Sink};
-use std::fs::File;
-use std::io::BufReader;
 
 fn cell_to_color(cell: char) -> Color {
     match cell {
@@ -372,16 +371,11 @@ fn main() {
     let window_height = 900;
     let block_size = 100;
     
-    / Inicializar sistema de audio
-    let (_stream, stream_handle) = OutputStream::try_default().expect("No se pudo inicializar el sistema de audio");
-    let sink = Sink::try_new(&stream_handle).expect("No se pudo crear el sink de audio");
+    // Inicializar sistema de audio
+    let mut audio_manager = AudioManager::new().expect("No se pudo inicializar el sistema de audio");
     
-    //Cargar y reproducir música de fondo
-    let file = File::open("assets/sounds/music.mp3").expect("No se pudo encontrar el archivo de música");
-    let source = Decoder::new(BufReader::new(file)).expect("No se pudo decodificar el archivo de música");
-    sink.append(source);
-    sink.set_volume(0.3); //Volumen al 30% 
-    sink.play();
+    // Cargar y reproducir música de fondo
+    audio_manager.play_background_music();
     
     let (mut window, raylib_thread) = raylib::init()
         .size(window_width, window_height)
@@ -421,18 +415,13 @@ fn main() {
         let frame_start = Instant::now();
         framebuffer.clear();
         
-        //Mantener la música reproduciéndose en loop
-        if sink.empty() {
-            //Si la música terminó, cargar y reproducir de nuevo
-            let file = File::open("assets/sounds/music.mp3").expect("No se pudo encontrar el archivo de música");
-            let source = Decoder::new(BufReader::new(file)).expect("No se pudo decodificar el archivo de música");
-            sink.append(source);
-        }
+        // Mantener la música reproduciéndose en loop
+        audio_manager.maintain_background_music();
         
         match game_manager.state {
             GameState::Welcome => {
                 //Manejar input del menú de bienvenida
-                handle_welcome_input(&mut game_manager, &window);
+                handle_welcome_input(&mut game_manager, &window, &audio_manager);
                 
                 //Si se seleccionó un nivel, cargar el laberinto correspondiente
                 if game_manager.state == GameState::Playing {
@@ -447,10 +436,11 @@ fn main() {
             
             GameState::Playing => {
                 //Lógica del juego normal
-                process_events(&mut player, &window, &maze, block_size);
+                process_events(&mut player, &window, &maze, block_size, &mut audio_manager);
                 
                 //Verificar victoria
                 if check_victory(&player, &maze, block_size) {
+                    audio_manager.play_win_sound();
                     game_manager.win_game();
                 }
                 
@@ -458,11 +448,13 @@ fn main() {
                 if window.is_gamepad_available(0) {
                     // Botón Start/Options - Ir al menú principal
                     if window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_MIDDLE_RIGHT) {
+                        audio_manager.play_menu_sound();
                         game_manager.reset_to_welcome();
                     }
                     
                     //Botón Select/Share - Reset nivel actual
                     if window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_MIDDLE_LEFT) {
+                        audio_manager.play_start_sound();
                         maze = load_maze(game_manager.current_difficulty.get_maze_file());
                         player.pos = Vector2::new(150.0, 150.0);
                         player.a = PI / 3.0;
@@ -508,7 +500,7 @@ fn main() {
                 render_victory_screen(&mut framebuffer);
                 
                 //Manejar input de victoria
-                let action = handle_victory_input(&mut game_manager, &window);
+                let action = handle_victory_input(&mut game_manager, &window, &audio_manager);
                 match action {
                     VictoryAction::RestartLevel => {
                         //Reiniciar el mismo nivel
