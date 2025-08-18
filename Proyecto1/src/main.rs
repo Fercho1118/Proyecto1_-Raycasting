@@ -20,6 +20,9 @@ use raylib::prelude::*;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::f32::consts::PI;
+use rodio::{Decoder, OutputStream, Sink};
+use std::fs::File;
+use std::io::BufReader;
 
 fn cell_to_color(cell: char) -> Color {
     match cell {
@@ -369,6 +372,17 @@ fn main() {
     let window_height = 900;
     let block_size = 100;
     
+    / Inicializar sistema de audio
+    let (_stream, stream_handle) = OutputStream::try_default().expect("No se pudo inicializar el sistema de audio");
+    let sink = Sink::try_new(&stream_handle).expect("No se pudo crear el sink de audio");
+    
+    //Cargar y reproducir música de fondo
+    let file = File::open("assets/sounds/music.mp3").expect("No se pudo encontrar el archivo de música");
+    let source = Decoder::new(BufReader::new(file)).expect("No se pudo decodificar el archivo de música");
+    sink.append(source);
+    sink.set_volume(0.3); //Volumen al 30% 
+    sink.play();
+    
     let (mut window, raylib_thread) = raylib::init()
         .size(window_width, window_height)
         .title("Raycaster - Select Level")
@@ -406,6 +420,14 @@ fn main() {
     while !window.window_should_close() {
         let frame_start = Instant::now();
         framebuffer.clear();
+        
+        //Mantener la música reproduciéndose en loop
+        if sink.empty() {
+            //Si la música terminó, cargar y reproducir de nuevo
+            let file = File::open("assets/sounds/music.mp3").expect("No se pudo encontrar el archivo de música");
+            let source = Decoder::new(BufReader::new(file)).expect("No se pudo decodificar el archivo de música");
+            sink.append(source);
+        }
         
         match game_manager.state {
             GameState::Welcome => {
