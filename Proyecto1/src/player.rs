@@ -57,9 +57,10 @@ pub fn check_victory(player: &Player, maze: &Maze, block_size: usize) -> bool {
 
 pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block_size: usize, audio_manager: &mut AudioManager) {
     const MOVE_SPEED: f32 = 5.0;
+    const GAMEPAD_MOVE_SPEED: f32 = 8.0; 
     const ROTATION_SPEED: f32 = PI / 50.0;
-    const MOUSE_SENSITIVITY: f32 = 0.003;
-    const GAMEPAD_SENSITIVITY: f32 = 0.05;
+    const MOUSE_SENSITIVITY: f32 = 0.01;
+    const GAMEPAD_SENSITIVITY: f32 = 0.08; 
     const GAMEPAD_DEADZONE: f32 = 0.1;
     
     //Verificar si hay un gamepad conectado
@@ -119,8 +120,8 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
         let left_stick_y = rl.get_gamepad_axis_movement(0, GamepadAxis::GAMEPAD_AXIS_LEFT_Y);
         if left_stick_y.abs() > GAMEPAD_DEADZONE {
             let new_pos = Vector2::new(
-                player.pos.x + MOVE_SPEED * (-left_stick_y) * player.a.cos(),
-                player.pos.y + MOVE_SPEED * (-left_stick_y) * player.a.sin(),
+                player.pos.x + GAMEPAD_MOVE_SPEED * (-left_stick_y) * player.a.cos(),
+                player.pos.y + GAMEPAD_MOVE_SPEED * (-left_stick_y) * player.a.sin(),
             );
             
             if is_valid_position(new_pos, maze, block_size) {
@@ -166,8 +167,8 @@ pub fn process_events(player: &mut Player, rl: &RaylibHandle, maze: &Maze, block
             };
             
             let new_pos = Vector2::new(
-                player.pos.x + MOVE_SPEED * left_stick_x.abs() * angle.cos(),
-                player.pos.y + MOVE_SPEED * left_stick_x.abs() * angle.sin(),
+                player.pos.x + GAMEPAD_MOVE_SPEED * left_stick_x.abs() * angle.cos(),
+                player.pos.y + GAMEPAD_MOVE_SPEED * left_stick_x.abs() * angle.sin(),
             );
             
             if is_valid_position(new_pos, maze, block_size) {

@@ -8,6 +8,7 @@ pub struct Framebuffer {
     current_color: Color,
     //Cache de texturas para acceso rápido
     pub wall_texture_cache: Option<Vec<Vec<Color>>>,
+    pub goal_texture_cache: Option<Vec<Vec<Color>>>, 
     pub floor_texture_cache: Option<Vec<Vec<Color>>>,
 }
 
@@ -21,6 +22,7 @@ impl Framebuffer {
             background_color: Color::BLACK,
             current_color: Color::WHITE,
             wall_texture_cache: None,
+            goal_texture_cache: None, 
             floor_texture_cache: None,
         }
     }
@@ -59,6 +61,22 @@ impl Framebuffer {
         self.wall_texture_cache = Some(cache);
     }
     
+    pub fn load_goal_texture_cache(&mut self, texture: &Image) {
+        //Crear cache de la textura de meta para acceso rápido
+        let mut cache = Vec::new();
+        let mut temp_texture = texture.clone();
+        
+        for y in 0..texture.height {
+            let mut row = Vec::new();
+            for x in 0..texture.width {
+                let color = temp_texture.get_color(x, y);
+                row.push(color);
+            }
+            cache.push(row);
+        }
+        self.goal_texture_cache = Some(cache);
+    }
+    
     pub fn load_floor_texture_cache(&mut self, texture: &Image) {
         //Crear cache de la textura de piso para acceso rápido
         let mut cache = Vec::new();
@@ -86,6 +104,17 @@ impl Framebuffer {
             let g = (ty * 255.0) as u8;
             let b = ((tx + ty) * 127.5) as u8;
             Color::new(r.max(100), g.max(80), b.max(60), 255)
+        }
+    }
+    
+    pub fn get_goal_texture_pixel(&self, tx: f32, ty: f32) -> Color {
+        if let Some(ref cache) = self.goal_texture_cache {
+            let tex_x = ((tx * cache[0].len() as f32) as usize).min(cache[0].len() - 1);
+            let tex_y = ((ty * cache.len() as f32) as usize).min(cache.len() - 1);
+            cache[tex_y][tex_x]
+        } else {
+            //Fallback a color verde si no hay cache
+            Color::GREEN
         }
     }
     

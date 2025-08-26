@@ -9,6 +9,7 @@ mod player;
 mod game_state;
 mod screens;
 mod audio;
+mod sprites;
 
 use line::line;
 use maze::{Maze, load_maze};
@@ -18,6 +19,7 @@ use player::{Player, process_events, get_gamepad_info, check_gamepad_mode_change
 use game_state::{GameManager, GameState, Difficulty};
 use screens::{draw_welcome_screen, draw_victory_screen, handle_victory_input, render_victory_screen, handle_welcome_input, VictoryAction};
 use audio::AudioManager;
+use sprites::SpriteManager;
 use raylib::prelude::*;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -28,7 +30,7 @@ fn cell_to_color(cell: char) -> Color {
         '+' => Color::BLUE,
         '-' => Color::BLUE,
         '|' => Color::BLUE,
-        'g' => Color::GREEN,
+        'g' => Color::ORANGE, 
         ' ' => Color::BLACK,
         _ => Color::WHITE,
     }
@@ -98,7 +100,7 @@ fn draw_minimap(
             
             let color = match cell {
                 '+' | '-' | '|' => Color::WHITE,
-                'g' => Color::GREEN,
+                'g' => Color::ORANGE, 
                 ' ' => Color::BLACK,
                 _ => Color::GRAY,
             };
@@ -348,9 +350,14 @@ fn render_world(
                     //Obtener el color con validaciones
                     let color = match intersect.impact {
                         '+' | '-' | '|' => {
-                            //Usar textura para paredes azules con coordenadas válidas
+                            //Usar textura uniforme para todas las paredes
                             let safe_tx = intersect.tx.clamp(0.0, 1.0);
                             framebuffer.get_texture_pixel(safe_tx, ty)
+                        },
+                        'g' => {
+                            //Usar textura de Konoha para paredes de meta
+                            let safe_tx = intersect.tx.clamp(0.0, 1.0);
+                            framebuffer.get_goal_texture_pixel(safe_tx, ty)
                         },
                         _ => {
                             //Usar color sólido para otros tipos de celdas
@@ -371,10 +378,10 @@ fn main() {
     let window_height = 900;
     let block_size = 100;
     
-    // Inicializar sistema de audio
+    //Inicializar sistema de audio
     let mut audio_manager = AudioManager::new().expect("No se pudo inicializar el sistema de audio");
     
-    // Cargar y reproducir música de fondo
+    //Cargar y reproducir música de fondo
     audio_manager.play_background_music();
     
     let (mut window, raylib_thread) = raylib::init()
@@ -391,18 +398,33 @@ fn main() {
         .expect("No se pudo cargar la textura bosque.jpg");
     framebuffer.load_texture_cache(&wall_texture);
     
+    //Cargar textura de meta (Konoha)
+    let goal_texture = Image::load_image("assets/img/konoha.jpg")
+        .expect("No se pudo cargar la textura konoha.jpg");
+    framebuffer.load_goal_texture_cache(&goal_texture);
+    
+    //Cargar textura de meta (Konoha)
+    let goal_texture = Image::load_image("assets/img/konoha.jpg")
+        .expect("No se pudo cargar la textura konoha.jpg");
+    framebuffer.load_goal_texture_cache(&goal_texture);
+    
     //Game manager para estados
     let mut game_manager = GameManager::new();
     
+    //Inicializar sistema de sprites
+    let mut sprite_manager = SpriteManager::new();
+    sprite_manager.load_sprite_textures(&mut window, &raylib_thread);
+    
     //Variables del juego
     let mut maze = load_maze("maze_easy.txt"); 
+    sprite_manager.spawn_sprites_in_maze(&maze, block_size); 
     let mut player = Player {
         pos: Vector2::new(150.0, 150.0),
         a: PI / 3.0,
         fov: PI / 3.0,
     };
     
-    let mut mode = "2D";
+    let mut mode = "3D"; //Iniciar en 3D por defecto
     
     //Variables para FPS
     let target_fps = 15.0;
@@ -415,7 +437,7 @@ fn main() {
         let frame_start = Instant::now();
         framebuffer.clear();
         
-        // Mantener la música reproduciéndose en loop
+        //Mantener la música reproduciéndose en loop
         audio_manager.maintain_background_music();
         
         match game_manager.state {
@@ -426,6 +448,7 @@ fn main() {
                 //Si se seleccionó un nivel, cargar el laberinto correspondiente
                 if game_manager.state == GameState::Playing {
                     maze = load_maze(game_manager.current_difficulty.get_maze_file());
+                    sprite_manager.spawn_sprites_in_maze(&maze, block_size);
                     player.pos = Vector2::new(150.0, 150.0);
                     player.a = PI / 3.0;
                 }
@@ -444,6 +467,23 @@ fn main() {
                     game_manager.win_game();
                 }
                 
+                //Controles de teclado adicionales
+                if window.is_key_pressed(KeyboardKey::KEY_Q) {
+                    // Q - Ir al menú principal
+                    audio_manager.play_menu_sound();
+                    game_manager.reset_to_welcome();
+                }
+                
+                if window.is_key_pressed(KeyboardKey::KEY_R) {
+                    // R - Reset nivel actual
+                    audio_manager.play_start_sound();
+                    maze = load_maze(game_manager.current_difficulty.get_maze_file());
+                    sprite_manager.spawn_sprites_in_maze(&maze, block_size);
+                    player.pos = Vector2::new(150.0, 150.0);
+                    player.a = PI / 3.0;
+                    framebuffer.set_background_color(Color::new(50, 50, 100, 255));
+                }
+                
                 //Controles adicionales con gamepad
                 if window.is_gamepad_available(0) {
                     // Botón Start/Options - Ir al menú principal
@@ -456,6 +496,7 @@ fn main() {
                     if window.is_gamepad_button_pressed(0, GamepadButton::GAMEPAD_BUTTON_MIDDLE_LEFT) {
                         audio_manager.play_start_sound();
                         maze = load_maze(game_manager.current_difficulty.get_maze_file());
+                        sprite_manager.spawn_sprites_in_maze(&maze, block_size);
                         player.pos = Vector2::new(150.0, 150.0);
                         player.a = PI / 3.0;
                         framebuffer.set_background_color(Color::new(50, 50, 100, 255));
@@ -464,14 +505,19 @@ fn main() {
                 
                 //Cambiar modo con la tecla M o gamepad
                 if window.is_key_pressed(KeyboardKey::KEY_M) || check_gamepad_mode_change(&window) {
-                    mode = if mode == "2D" { "3D" } else { "2D" };
+                    mode = if mode == "3D" { "2D" } else { "3D" }; 
                 }
+                
+                //Actualizar sprites
+                sprite_manager.update(1.0 / 60.0); 
                 
                 //Dibujar juego según el modo
                 if mode == "2D" {
                     render_maze(&mut framebuffer, &maze, block_size, &player);
+                    //Los sprites solo se ven en modo 3D
                 } else {
                     render_world(&mut framebuffer, &maze, block_size, &player);
+                    sprite_manager.render_sprites_3d(&mut framebuffer, &player, &maze, block_size);
                     //Solo mostrar minimapa en modo 3D
                     draw_minimap(&mut framebuffer, &maze, &player, block_size);
                 }
@@ -484,7 +530,7 @@ fn main() {
                 framebuffer.draw_text(&mode_text, 10, 30, 16, Color::WHITE);
                 
                 //Mover los controles a la esquina inferior izquierda para evitar superposición
-                let controls_text = "Options=Menu | Share=Reset";
+                let controls_text = "Q=Menu | R=Reset | Options=Menu | Share=Reset";
                 let controls_y = framebuffer.height.saturating_sub(25);
                 framebuffer.draw_text(&controls_text, 10, controls_y, 14, Color::LIGHTGRAY);
                 
@@ -505,6 +551,7 @@ fn main() {
                     VictoryAction::RestartLevel => {
                         //Reiniciar el mismo nivel
                         maze = load_maze(game_manager.current_difficulty.get_maze_file());
+                        sprite_manager.spawn_sprites_in_maze(&maze, block_size);
                         player.pos = Vector2::new(150.0, 150.0);
                         player.a = PI / 3.0;
                         framebuffer.set_background_color(Color::new(50, 50, 100, 255));
