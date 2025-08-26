@@ -2,9 +2,8 @@
 
 Un juego de laberinto 3D desarrollado en Rust utilizando técnicas de raycasting, inspirado en el universo de Naruto. Navega a través de laberintos temáticos con sprites animados y tres niveles de dificultad.
 
-## 🎥 Demo
-
-![Demo](./Naruto_Maze.mp4)
+## 🎥 Demo en YouTube
+[![Naruto Maze](https://img.youtube.com/vi/E-mm0HbIBZc/0.jpg)](https://youtu.be/E-mm0HbIBZc)
 
 ## ✨ Características
 
